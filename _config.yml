@@ -1,0 +1,11 @@
+title: Best Practice Resources
+description: Comprehensive documentation on six core software engineering topics, each grounded in the work of recognised authorities in the field.
+remote_theme: just-the-docs/just-the-docs
+
+plugins:
+  - jekyll-remote-theme
+  - jekyll-relative-links
+  - jekyll-seo-tag
+
+search_enabled: true
+heading_anchors: true
