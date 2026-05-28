@@ -1,111 +1,99 @@
 # Writing Documentation That Actually Works
 
-Most technical documentation fails not because the writer lacks technical knowledge, but because they lack a clear framework for what the documentation is trying to do. Without this framework, a single document ends up attempting to serve several incompatible purposes at once — and ends up serving none of them well.
+Let me start with a scenario that will be familiar to many of you.
 
-The reader arrives looking for one specific kind of help. If the document mixes tutorials with reference material, how-to instructions with conceptual explanation, the reader must work to extract what they need while being distracted by what they do not. The writer, meanwhile, cannot write clearly because they are not clear about what kind of document they are writing.
+An engineer has been at a company for four years. They built a critical piece of infrastructure. They know exactly how it works — the edge cases, the configuration quirks, the reason a particular design decision was made three years ago. And then they leave. Or they're promoted. Or they're pulled onto a different project.
 
----
+And suddenly that knowledge is gone. Not in some abstract, recoverable sense. Gone. The documentation was either never written, or written at the time and never updated, or written in a way that only made sense to the person who already knew the system. New engineers spend weeks reverse-engineering something that should have taken hours to understand. They make changes that break things for reasons nobody can explain.
 
-## The Four Types of Documentation
-
-There is a useful framework that separates documentation into four distinct types, organised along two axes.
-
-The first axis is whether the reader is trying to learn or trying to accomplish something right now. Someone learning is willing to invest time and follow a structured path. Someone trying to get a specific thing done needs the shortest route to completion and does not want to be taught more than necessary.
-
-The second axis is whether the focus is practical or theoretical. Practical documentation is about doing. Theoretical documentation is about understanding.
-
-These two axes produce four quadrants, each requiring a fundamentally different kind of writing.
+This is the knowledge silo problem, and documentation is the only way to solve it. But most documentation fails. Not because engineers don't know their subject matter — they know it very well. It fails for a more interesting reason.
 
 ---
 
-## Tutorials: Learning by Doing
+## The Curse of Knowledge
 
-A tutorial is for someone who is new to a technology or concept. They do not yet know what they do not know. They cannot evaluate different approaches because they have no frame of reference yet.
+There's a phenomenon in cognitive psychology called the curse of knowledge. It describes what happens when you become so fluent in a subject that you lose the ability to recall what it was like not to know it. The gaps that cause beginners to fail become invisible to you. The steps you skip over because they're obvious to you are not obvious to the person reading your documentation for the first time.
 
-The purpose of a tutorial is not to teach concepts. It is to give a beginner a successful, confidence-building experience. By the end, the reader should have accomplished something real and have a sense that this technology is something they can work with.
+One practitioner put it this way: "Remember how it was when you learned the subject. Remember the questions you had to ask, the things you struggled with. Write the way you wish someone had written for you."
 
-This has practical implications for how to write tutorials. Every step must work. Every command should show its expected output so the reader can verify they are on track. There should be no choices, no options, no digressions — one right path, with everything decided by the writer. Theoretical completeness is sacrificed for usability.
+This is harder than it sounds. Holding back expertise while writing requires genuine cognitive effort. It means asking not "what do I know about this?" but "what would someone need to know to use this successfully, starting from nothing?"
 
-The most common failure mode of tutorials is introducing concepts before giving the reader anything to do. A tutorial that requires reading fifteen minutes of background theory before typing a single command has already lost most of its audience.
-
----
-
-## How-To Guides: Getting Things Done
-
-A how-to guide is for someone who knows what they want to accomplish. They are not learning — they chose this task. They need the most direct route to completing it.
-
-How-to guides assume competence. They do not explain basics. They are focused entirely on the outcome. "How to configure SSL termination" is a how-to. "Understanding TLS" is not.
-
-Titles for how-to guides should be specific and action-oriented. The steps should be numbered, discrete, and each should have a visible outcome so the reader knows they are on track. Include what to do if something goes wrong. Keep theory out — if background is needed, link to an explanation rather than including it.
+The only reliable way to find out is to test your documentation with actual users from your intended audience. Not colleagues who know the system. People who don't. Watch where they get stuck. The places that surprise you are the places you've been invisibly assuming shared knowledge that your reader doesn't have.
 
 ---
 
-## Reference: The Source of Truth
+## Why Most Documentation Fails
 
-Reference documentation is for someone who already knows what they are looking for and needs the precise details. They are not reading to learn — they are reading to verify or look up a specific fact.
+When practitioners diagnose documentation failures, two root causes come up most often.
 
-Reference documentation must be complete and accurate above all else. It is organised for lookup, not for learning — alphabetically, by module, by concept. It is descriptive rather than instructional. It does not explain why things are designed the way they are.
+The first is mixing. Most bad documentation is the product of conflating different types of documentation and trying to serve multiple purposes with a single document. The reader arrives looking for one thing and has to extract it from a mixture of things they don't need. The writer, simultaneously trying to teach, instruct, explain, and document, ends up doing none of them particularly well.
 
-API documentation, configuration option lists, command-line flag references, and man pages are all reference documentation. The most effective reference documentation is generated automatically from the code — this keeps it in sync with the implementation and eliminates the manual work of keeping it up to date.
-
----
-
-## Explanations: Understanding Why
-
-Explanations are for someone who wants to understand the context behind something — why it works the way it does, what the design decisions were, what alternatives were considered and why they were not chosen.
-
-Explanations do not instruct. They illuminate. They answer "why" questions, not "how" questions. They can discuss tradeoffs, historical context, and the relationship between different concepts. The tone can be more conversational and exploratory than other documentation types.
-
-Examples: "Why does this framework use the approach it does?", "How the event loop works and why that matters for I/O-heavy code", "The reasoning behind this architectural decision."
+The second is incentives. Teams know that documentation matters in the abstract. But developers don't see their peers spending time on it, so they don't prioritise it. This creates a negative loop. One practitioner made a distinction that I think is valuable: there's a difference between compliance — forcing documentation to happen through mandates and deadlines — and commitment — engineers writing documentation because they see the value and want to. Culture scales through commitment. Compliance scales through process, but it produces documentation that reads like it was written as an obligation, and it's read the same way.
 
 ---
 
-## Keeping the Types Separate
+## The Four Types of Documentation, and Why Keeping Them Separate Matters
 
-The key insight of this framework is that these four types of documentation should be kept separate from each other. Mixed documentation — a tutorial that stops to explain concepts, a how-to guide that tries to teach background theory, a reference page that includes narrative — fails at all of its purposes simultaneously.
+There's a framework for thinking about documentation that I find genuinely useful. It proposes that documentation has four fundamentally different purposes, and that the failures of most documentation can be traced back to conflating these purposes.
 
-When you sit down to write documentation, decide first which type you are writing. This clarifies your purpose, your audience, your tone, and what to include and exclude.
+The first type is tutorials. A tutorial is for someone encountering a subject for the first time. They don't know what they don't know. They can't evaluate options because they have no frame of reference. The purpose of a tutorial is not to teach concepts. It is to give the reader a successful, confidence-building experience. To get them to a working state as quickly as possible, even if that means simplifying and deferring the full picture.
 
----
+The failure mode of tutorials is introducing concepts before giving the reader anything to do. A tutorial that requires reading fifteen minutes of background theory before typing a single command has already failed for most of its audience. Learning by doing is not a pedagogical preference. It's how humans actually acquire confidence with new skills.
 
-## Writing the README First
+The second type is how-to guides. These are for someone who knows what they want to accomplish and needs the shortest route to doing it. A how-to guide assumes competence. It doesn't explain basics. It has a title like "How to configure SSL termination" — specific, action-oriented, results-focused. It is not a tutorial. The reader chose this task. You are not guiding them through a curriculum.
 
-One useful discipline is to write the project's README before writing any code. The README forces you to articulate what the project is, what problem it solves, who it is for, and how it works — from the outside in. This process often reveals gaps in the design that are much cheaper to address before implementation than after.
+The third type is reference documentation. This is for someone who already knows what they're looking for and needs the precise details. API documentation, configuration option lists, command-line flag references. The defining characteristic: it is organised for lookup, not for learning. Every entry is consistent with every other entry. The most effective reference documentation is generated automatically from the code so it can't drift out of sync with the implementation.
 
-A good README contains: a one-paragraph answer to "what is this?"; a quick start that gets someone to a working result in under five minutes; installation instructions with all prerequisites made explicit; a few core usage examples showing the most common cases; a link to fuller documentation for depth; and how to contribute and the licence.
+The fourth type is explanations. These are for someone who wants to understand why. Not how to use something, not the specific details, but the context — why is it designed this way, what were the alternatives, what are the trade-offs? Explanations are where history belongs, where opinions belong, where you can be honest about the complexity of something rather than presenting a simplified face.
 
-What a README should not contain is everything. A README that takes thirty minutes to read has failed as a README. Long content belongs in the appropriate type of linked documentation.
-
----
-
-## Writing for a Distributed Audience
-
-In a world where readers arrive at documentation via search engines, any page may be the first page a reader sees. Documentation cannot assume the reader has followed a linear path through earlier material.
-
-Each page should make sense on its own. Each page should answer "what is this?" in its first paragraph without requiring context from other pages. Related pages should be linked in both directions. Do not assume the reader has completed a tutorial, read an installation guide, or seen any other specific content.
-
-This has implications for how to organise documentation. Topic-based structure — where each page covers exactly one topic and topics are connected by links rather than sequenced — is more resilient than a linear narrative structure. A change to one topic does not require rewriting surrounding material.
+The key insight is that these four types should be kept separate. A tutorial that stops to explain design rationale loses its tutorial quality. A how-to guide that tries to teach background theory stops being useful for someone who just needs to get something done. Mixing them produces documentation that serves no purpose particularly well.
 
 ---
 
-## Writing Style
+## Creation Velocity: Why Good Intentions Don't Produce Good Docs
 
-Active voice is clearer than passive voice. "The server loads the configuration file" is more direct and easier to process than "the configuration file is loaded by the server." Prefer it.
+One of the most practical insights I've heard from teams that have improved their documentation culture is this: the bottleneck isn't motivation. It's friction.
 
-Short sentences are clearer than long ones. A sentence with multiple nested clauses forces the reader to hold several pieces of context in mind simultaneously before the meaning resolves. Break it.
+Documentation creation is slow enough that reality moves faster. A system changes. The documentation is outdated. Writing an update means opening a separate wiki, finding the right page, switching mental context. And so it doesn't happen.
 
-Define technical terms before using them. Every piece of jargon that a reader encounters without definition is a moment of friction. Define on first use.
+The teams that produce consistently accurate documentation tend to keep documentation next to the code it describes, in the same repository, using the same review workflow. Changes to the system require changes to the documentation as part of the same pull request. The documentation lives where developers already are, uses tools they already use, and follows processes they already follow.
 
-Code examples must run as written. An example that does not work, or that omits the error handling that real code requires, teaches the wrong lesson. Show realistic examples with real variable names and real error handling.
+This is sometimes called docs-as-code, and the practical benefits are concrete. Documentation changes are reviewed alongside code changes, which catches inaccuracies before they're published. Documentation lives in version control, which means you can see what changed and when. Automated checks can flag links that break, APIs that have drifted from their documentation, and pages that haven't been updated since a related code change.
+
+The organisational implication: documentation sprints are almost always a sign that documentation is not part of the workflow. By the time the sprint happens, the team has forgotten why decisions were made. The resulting documentation is retrospective reconstruction, which is both less accurate and less useful than documentation written contemporaneously.
 
 ---
 
-## Documentation in the Development Workflow
+## Writing for a World Without Context
 
-Documentation written after the fact, as an obligation, reads like it was written after the fact as an obligation. The most reliable way to produce good documentation is to treat it as part of the definition of done for any feature, not as a separate subsequent task.
+There's a consequence of how developers actually use documentation that changes how you should write it. Most readers arrive at a documentation page directly — through a search engine, a link in a Slack message, a reference from Stack Overflow. They have not read the tutorial. They may not even know what the broader system is. They arrive at your page with a specific question and no guaranteed context.
 
-Documentation that lives in the same repository as the code it describes is more likely to stay in sync. Documentation changes can go through the same review process as code changes. Automated checks can flag links that break, APIs that drift from their documentation, and prose that has not been updated alongside a code change.
+This means every documentation page needs to be self-contained. Every page should answer the question "what is this?" in its first paragraph, without assuming the reader has read anything else. Every page should link to related content in both directions so the reader can orient themselves if they need broader context. Assumptions of prior reading are hidden barriers that cause readers to bounce.
 
-**The curse of knowledge** is the central challenge of technical writing. The more familiar you are with something, the harder it is to remember what it was like not to know it. The gaps that cause a new reader to become confused are invisible to you — they are the things that are so obvious to you that they do not seem worth stating.
+The practical implication for organisation is that topic-based structure — where each page covers exactly one topic and topics are connected by links — is more resilient than linear narrative structure. A change to one topic doesn't require rewriting surrounding content. Each page stands alone and serves as an entry point.
 
-The only reliable antidote is testing documentation with actual users from the intended audience. Watch where they get stuck. Read documentation aloud — awkward phrasing becomes immediately apparent. Track where users open support tickets or ask questions, and treat each one as a documentation gap to address.
+---
+
+## Writing Style: The Basics That Make the Most Difference
+
+A few principles from technical writing practice that have an outsized effect on clarity.
+
+Active voice over passive. "The server loads the configuration file at startup" is more direct and easier to process than "the configuration file is loaded by the server at startup." Active voice names the agent and makes the flow of cause and effect clearer.
+
+Short sentences over long ones. A sentence with multiple nested clauses forces the reader to hold context in working memory while the meaning resolves. Break compound sentences. Let each idea land before introducing the next.
+
+Define terms before using them. Every acronym or piece of jargon that a reader encounters without explanation is a moment of friction. Define on first use, or eliminate the jargon.
+
+Code examples must run as written. An example that doesn't work, or that requires unstated assumptions, teaches the wrong lesson. Show realistic examples with realistic variable names and real error handling. The reader will pattern-match on your examples. Make sure the pattern they're matching is the right one.
+
+---
+
+## Measuring Whether It's Working
+
+Almost no team measures whether documentation actually does what it's supposed to do. This is part of why documentation investment is hard to justify to leadership — it stays invisible.
+
+The teams that have gotten buy-in for documentation investment tracked concrete things. Time to first successful result for new users following a tutorial. Support ticket volume before and after documentation improvements. The question "can a new team member onboard using only the documentation?" answered honestly, by timing a new team member doing it.
+
+These are not exotic metrics. They're just rarely tracked. When they are tracked, the results make the investment obvious.
+
+The deeper principle is that documentation is not a kindness you do for users. It is organisational memory, risk mitigation, and the foundation of a system that can survive the loss of any individual engineer. Write the documentation you wish had existed when you joined. Write it while you remember what it was like not to know. And treat it as the serious engineering discipline it is.

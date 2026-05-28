@@ -1,107 +1,111 @@
 # Understanding Web Application Vulnerabilities
 
-Web applications are attacked constantly. Understanding the most common ways they fail is essential for building them correctly, reviewing others' code, and responding effectively when something goes wrong.
+I want to start with a story about Equifax. In 2017, attackers exfiltrated the personal data of 147 million Americans. Names, Social Security numbers, dates of birth, addresses, credit card details. The company paid over 575 million dollars in fines and settlements. It became one of the defining security failures of the decade.
 
-The security industry maintains standardised catalogues of vulnerability classes. The most widely used is the OWASP Top 10, which ranks the most critical web application security risks based on data from real-world assessments. Alongside it is the Common Weakness Enumeration, a taxonomy of the underlying root causes of software weaknesses. When you identify a vulnerability, referencing its Common Weakness Enumeration identifier gives it precision and connects your finding to an established body of knowledge.
+The vulnerability that enabled it was SQL injection. Not a novel, sophisticated technique. Not a zero-day exploit known only to intelligence agencies. SQL injection has been on the OWASP Top Ten list — the industry's catalogue of the most critical web application risks — since that list was first published in 2003. The patch was available. The process for applying it existed. And yet, between the vulnerability being announced and the breach occurring, the patch was not applied.
 
----
+I tell that story not to apportion blame, but because it captures something important about how web application vulnerabilities actually work in practice. The most dangerous vulnerabilities are rarely the most exotic. They're the ones that are well-understood, well-documented, and still somehow present in production systems.
 
-## Injection
-
-Injection is the vulnerability class where user-supplied data is interpreted as code rather than as data. The application fails to maintain the boundary between instructions and input.
-
-SQL injection is the classic example. A login form that constructs a database query by concatenating the user's input directly into the query string can be manipulated to make the query mean something entirely different from what was intended. A carefully crafted username can cause the query to return all users, bypass the password check, or execute arbitrary database operations.
-
-The fix is always to use parameterised queries or prepared statements, where the query structure is defined separately from the data. The same principle applies to other injection contexts: OS command injection (user input passed to a shell), template injection (user input evaluated by a templating engine), and LDAP injection.
-
-A particularly important variant is second-order injection, where a payload is stored in the database and executed later — sometimes in a different part of the application, bypassing input filters applied at the time of writing.
+Understanding these vulnerability classes is not just about writing better code. It's about understanding the gap between code correctness and security — and recognising that a system can be entirely correct in doing what it was designed to do, while still being dangerously exploitable.
 
 ---
 
-## Broken Authentication
+## The Central Insight: Vulnerabilities Exploit Trust
 
-Authentication weaknesses allow attackers to assume other users' identities. The most prevalent real-world attack is credential stuffing: automated use of username and password pairs leaked from other services' breaches. Because people reuse passwords across services, credentials stolen from one breach are tried systematically against others.
+There is a throughline connecting most web application vulnerabilities that is worth stating explicitly before we get into the specifics.
 
-Other common failures include: login endpoints with no rate limiting or account lockout, allowing brute-force attacks; password reset flows with predictable or reusable tokens; session fixation, where an attacker pre-sets a session identifier that a victim then authenticates under; and long-lived "remember me" tokens derived from predictable values.
+Vulnerabilities work by exploiting existing trust.
 
-The mitigations: use a slow hashing algorithm designed for passwords. Apply rate limiting to login and password reset endpoints. Issue cryptographically random session tokens with sufficient entropy. Issue a new session identifier whenever the user's privilege level changes. Consider checking submitted passwords against known breach databases at registration and login.
+SQL injection exploits the database's trust that the query it receives was written by the application, not by a user. Cross-site request forgery exploits a website's trust that a request carrying a user's session cookie was initiated by that user. Server-side request forgery exploits an internal network's trust that HTTP requests originating from a server are legitimate. Insecure direct object references exploit a system's design assumption that only authorised users would ever think to request a resource.
 
----
-
-## Broken Access Control
-
-Access control failures are consistently the most prevalent finding in real-world web application assessments.
-
-The most important sub-class is Broken Object Level Authorisation, sometimes called Insecure Direct Object Reference. The vulnerability is simple: an application checks whether a user is allowed to access a type of resource, but fails to check whether they are allowed to access a specific instance of that resource. A user who can access their own invoice at a given URL may be able to access any invoice simply by changing the identifier in the URL.
-
-The fix is equally simple in principle: every request that accesses a specific object must verify that the requesting user has permission to access that specific object, not just that object type in general.
-
-Beyond object-level authorisation, access control failures include: function-level authorisation failures, where administrative endpoints are accessible without admin privileges; path traversal, where file paths constructed from user input can be manipulated to reach files outside the intended directory; and privilege escalation, both horizontal (accessing a peer's data) and vertical (accessing functionality reserved for higher-privilege roles).
-
-All authorisation logic must run on the server. Client-side checks are not authorisation — they are user experience.
+When you look at vulnerabilities through this lens, the mitigations become clearer. You're not just fixing code — you're identifying assumptions your system makes about trust, and ensuring those assumptions are explicitly verified rather than implicitly relied upon.
 
 ---
 
-## Cryptographic Failures
+## Injection: When Data Becomes Instructions
 
-This class covers both failing to encrypt data that should be protected and using encryption incorrectly.
+Injection is the vulnerability class where the boundary between data and code breaks down. User-supplied input is interpreted as instructions rather than as data, and the attacker uses that to make the system do something it was never supposed to do.
 
-Common failures include: transmitting sensitive data over unencrypted connections; storing passwords with fast hashing algorithms that are trivially reversible; using cryptographic modes that are vulnerable to specific attacks (ECB mode leaks patterns; CBC without authentication is vulnerable to padding oracle attacks); reusing initialisation vectors with stream ciphers or authenticated encryption modes, which is catastrophic for confidentiality; and hardcoding encryption keys in source code.
+SQL injection is the canonical example. Imagine a login form. The application takes the username you type and constructs a database query with it. If that construction is done by concatenating your input directly into the query string, a carefully crafted username can change the meaning of the query entirely. You can make it return all users. You can make it bypass the password check. You can make it execute arbitrary database commands.
 
-The guiding principle is not to invent cryptographic systems, however clever they seem. Standard, audited, widely-deployed algorithms are not just easier to implement — they have been scrutinised by specialists looking for flaws for decades. A custom algorithm designed in an afternoon has not. Use well-audited libraries, apply established algorithms, and use a secrets management system to handle keys.
+The fix is always to use parameterised queries — a technique where the query structure is defined separately from the data, and the database engine handles the separation. When you use parameterised queries, there is no string concatenation, and therefore no way for user input to alter the structure of the query. The principle is the same for every injection variant: define the structure separately from the data, and use a mechanism that enforces that separation.
 
----
+The same logic applies to command injection, where user input reaches a shell command. To template injection, where user input is evaluated by a templating engine. To log injection, where user input ends up in log output and triggers downstream processing. In every case, the root cause is the same: user-supplied data reached an interpreter without its structure being safely separated from the data being supplied.
 
-## Security Misconfiguration
-
-A large proportion of critical vulnerabilities in production systems are not code bugs — they are configuration problems. Default credentials left unchanged. Detailed error messages and stack traces returned to end users. Directory listings enabled. Security headers absent. Cloud storage buckets unintentionally made public. CORS configured to allow any origin on APIs that require authentication.
-
-These are all preventable with consistent practices: use infrastructure-as-code so all configuration is version-controlled and audited; treat the default-deny principle as the baseline; run automated configuration scanning as part of your pipeline; and never rely on any single layer of configuration as your only defence.
+One variant worth calling out specifically is second-order injection. This is where the payload is stored in the database and executed later, in a different context. The input validation applied at the time of writing may catch direct injection attempts. But if that stored value is later retrieved and used in a new query without the same protection, the injection succeeds at a different point in the application. This is why parameterised queries everywhere is a principle, not a suggestion.
 
 ---
 
-## Vulnerable and Outdated Components
+## Broken Access Control: The Most Prevalent Failure
 
-Running software with known, unpatched vulnerabilities is a systemic problem. Several of the highest-profile security breaches in recent years — affecting tens or hundreds of millions of records — were caused not by novel attack techniques but by organisations failing to apply patches for known vulnerabilities that had been public for weeks or months.
+Broken access control has been ranked the number one web application security risk for several years running, and for good reason. It is extraordinarily common.
 
-The mitigation is automation: use software composition analysis tools that scan your dependencies against databases of known vulnerabilities. Maintain an inventory of what you depend on. Automate dependency update pull requests. Subscribe to security advisories for your most critical dependencies. Pin versions in production so you know exactly what is running.
+The most important sub-class is what's sometimes called insecure direct object reference — or IDOR. The pattern is simple: an application authenticates that a user is logged in, but fails to verify that the specific resource they're requesting belongs to them.
 
----
+Peloton, the exercise equipment company, had APIs that leaked private user data because the authorisation model was binary: either you're authenticated or you're not. Once authenticated, you could request data for any user ID. The check was "are you logged in?" and the missing check was "are you allowed to access this specific user's data?"
 
-## Cross-Site Scripting
+This pattern is so common because it requires a specific mindset shift. Most developers think about authorisation as a binary condition — the user either has access to this feature or they don't. But the right model is: the user has access to their own data. Every request that retrieves, modifies, or deletes a specific record needs to verify ownership or permission at the record level, not just at the feature level. That check needs to be server-side. Client-side checks are user experience, not security.
 
-Cross-site scripting allows attacker-controlled JavaScript to execute in another user's browser in the context of the vulnerable application. This gives an attacker access to anything the user can do or see in that application: their session cookies, their data, the ability to take actions on their behalf.
+A related failure is at the function level — administrative endpoints that have no check verifying the caller actually holds an administrative role. The URL for deleting a user account shouldn't be protected only by obscurity. It needs an explicit server-side check that the requesting user has the necessary privilege.
 
-There are three variants. Reflected cross-site scripting returns a payload from the request directly in the response. Stored cross-site scripting persists the payload in the database and serves it to anyone who views the affected page — no social engineering required. DOM-based cross-site scripting processes the payload entirely in the browser via JavaScript, without the server ever seeing it.
-
-Modern frontend frameworks escape HTML output by default, which eliminates most reflected and stored cross-site scripting. The remaining risk comes from explicitly bypassing that escaping. A Content Security Policy prevents inline script execution as a defence in depth. HttpOnly cookies prevent session tokens from being accessible via JavaScript, limiting the impact of an exploit.
+The principle that addresses both: default deny. Everything is forbidden unless explicitly permitted. Authorisation is granted, not assumed.
 
 ---
 
-## Cross-Site Request Forgery
+## Cryptographic Failures: The Wrong Kind of Cleverness
 
-Cross-site request forgery tricks an authenticated user's browser into making a request to a target application without the user's knowledge. A malicious page can cause a user's browser to send a request to their bank, their email provider, or any other service they are logged into — including modifying data or initiating transactions.
+Cryptographic failures cover two distinct problems: failing to encrypt data that should be protected, and using encryption incorrectly.
 
-Modern browsers address this substantially through the SameSite cookie attribute, which prevents cookies from being sent on cross-site requests. Combined with CSRF tokens — unpredictable per-session values that must be included in state-changing requests — this vulnerability is well understood and straightforward to mitigate.
+The failure mode that appears most often in practice is not the absence of encryption — most teams know they need to use HTTPS. The more common failures are subtler. Passwords stored with fast hashing algorithms that are trivially reversible at scale. Encryption modes that are vulnerable to specific attacks — ECB mode leaks patterns, CBC mode without authentication is vulnerable to padding oracle attacks. Initialisation vectors reused with stream ciphers, which is catastrophic. Encryption keys hardcoded in source code.
 
----
-
-## Server-Side Request Forgery
-
-Server-side request forgery causes the server to make HTTP requests to attacker-controlled destinations. In cloud environments this is particularly dangerous: an attacker who can cause the server to make requests to the cloud provider's internal metadata service can retrieve credentials that grant access to the entire cloud account.
-
-The mitigation is strict allowlisting of permitted URL schemes and destinations rather than attempting to blocklist dangerous ones. Blocklists are always incomplete. Network segmentation ensures that application servers cannot reach internal management interfaces directly.
+The guiding principle that practitioners have converged on over decades of painful experience: don't invent your own cryptography. The intuition that a clever custom scheme might be more secure than a standard one is almost always wrong. Standard algorithms have been scrutinised by specialists for decades. A custom scheme designed in a week has not. Use audited libraries, established algorithms, and a proper secrets management system.
 
 ---
 
-## Insecure Deserialisation
+## CSRF and SSRF: Trust Weaponised
 
-Deserialising untrusted data using language-native serialisation formats can execute arbitrary code, depending on which objects and methods are available in the runtime. This has been exploited in Java, Python, PHP, and Ruby applications.
+Cross-site request forgery and server-side request forgery are elegant attacks in the sense that they don't exploit bugs in code — they exploit architectural trust assumptions.
 
-Prefer standard data interchange formats — JSON or Protocol Buffers — over language-native serialisation for any data crossing a trust boundary. If native serialisation is unavoidable, use integrity checks to verify the data has not been tampered with before deserialising it.
+Cross-site request forgery works because browsers automatically include cookies with requests to a domain. If you're logged into your bank and you visit a malicious page, that page can cause your browser to make a request to your bank — and your browser will include your authentication cookies. The bank sees a request that appears to come from an authenticated session and processes it. The user never intended to make that request.
+
+Server-side request forgery works because servers are often trusted to make HTTP requests to internal services. An attacker who can cause a server to make requests to an arbitrary URL can target internal services that are not publicly accessible. In cloud environments, this is particularly dangerous because cloud providers expose metadata services on internal IP addresses. An attacker who can reach those endpoints can retrieve credentials that grant access to the entire cloud account.
+
+Both attacks work by making a trusted party — a browser or a server — make requests the user or system administrator never intended. The mitigations enforce that requests are only processed when they genuinely originate from the expected source.
 
 ---
 
-## Assessing Severity
+## Outdated Components and the Patching Problem
 
-When evaluating a vulnerability, consider four dimensions: how easy it is to exploit (does it require authentication? can it be triggered remotely?); what its scope is (does it cross privilege boundaries or affect other users?); what its impact is on confidentiality, integrity, and availability; and how widespread the vulnerable code path is. The CVSS scoring system provides a starting point, but context always matters more than a formula.
+The Equifax story has a sequel worth telling. Log4Shell, the critical vulnerability in the Log4j logging library discovered in late 2021, was present in thousands of applications. Some organisations discovered they were using the affected library by decompiling their own binaries — because there was no patch note released, and no internal inventory of what they depended on.
+
+The organisations that patched quickly had software composition analysis tooling that told them exactly which services used Log4j and which version. The organisations that took weeks had no such inventory. They were flying blind.
+
+This is why software composition analysis — automated tooling that scans your dependencies against databases of known vulnerabilities — is not optional. It needs to run daily, not just at build time. A library that was safe on Monday may have a disclosed critical vulnerability by Friday. You need to know that before your users do.
+
+The same discipline applies to the reverse problem: releasing patches without disclosing vulnerability details. Metabase learned this the hard way. Security researchers decompiled their bytecode, found the fix, and reverse-engineered the vulnerability from it within days of the patch being released. Silence is not a security strategy.
+
+---
+
+## Thinking About Severity
+
+When you find a vulnerability — in a code review, in a penetration test, in your own code — the question is always how serious it is. The answer depends on four things.
+
+How exploitable is it? Does it require authentication? Can it be triggered remotely by any user? Is the attack complex or straightforward?
+
+What is its scope? Does exploitation affect only the attacker's own account, or does it cross privilege boundaries and affect other users?
+
+What is the impact? Does it compromise confidentiality, integrity, or availability — and to what degree?
+
+How widespread is it? Is the vulnerable code path exercised rarely, or is it the main code path in the application?
+
+The CVSS scoring system gives you a structured way to reason about these dimensions. But the most important thing it provides is not a number — it's a vocabulary for having the conversation. A vulnerability with a high CVSS score in a rarely-exercised endpoint may matter less than a moderate-severity issue in your main authentication flow.
+
+---
+
+## The Practical Takeaway
+
+The vulnerability classes described here are not obscure. They are well-documented, well-understood, and consistently present in real applications because the conditions that produce them are easy to create and the mitigations require deliberate, consistent effort to apply.
+
+Injection happens when developers don't think about the data-code boundary. Access control failures happen when the authorisation model is binary rather than resource-level. Cryptographic failures happen when developers reach for the first available implementation rather than the right one. Outdated components become vulnerabilities when there's no process for tracking what you depend on.
+
+The common thread is that security requires asking specific questions at specific points in development. Not as an afterthought. Not as a compliance exercise. As a genuine part of building software that is worthy of the trust users place in it when they hand it their data.

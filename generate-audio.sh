@@ -8,7 +8,7 @@ set -euo pipefail
 READABLE_DIR="$(dirname "$0")/_readable"
 AUDIO_DIR="$(dirname "$0")/_audio"
 VOICE="Fiona (Enhanced)"
-RATE=165
+RATE=145
 
 mkdir -p "$AUDIO_DIR"
 TMPDIR_LOCAL=$(mktemp -d)

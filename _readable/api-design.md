@@ -1,91 +1,107 @@
 # Designing APIs That Last
 
-An API is a contract. Unlike internal code that you can refactor freely, changing an API has external consequences: it breaks the developers who depend on it. A poorly designed API is one you will either be forced to maintain in its broken state indefinitely, or forced to break — costing the trust and time of everyone who built on it.
+An API is a promise. It's a commitment you make to every developer who builds on top of it — that the interface they learn today will still work tomorrow, that the contracts they rely on are stable, that the effort they invest in integrating with your system won't be wasted.
 
-Good API design is therefore design for longevity. It means thinking carefully about who will use your API, what they will need to do with it, and — just as importantly — what they will need to do with it in the future, when requirements have changed in ways you cannot predict today.
+And like all promises, the worst thing you can do is break one without warning.
 
-The most common mistake in API design is designing for the provider rather than the consumer. An API that accurately reflects your internal data model, your database schema, or your system's internal organisation is easy for you to build. But the developer using your API has a different mental model, different terminology, and different goals. The API should meet them where they are.
-
----
-
-## What REST Actually Means
-
-REST — Representational State Transfer — is an architectural style derived from the principles that make the web scalable and resilient. Most APIs that call themselves REST do not fully implement it, which is not necessarily a problem, but understanding the constraints helps you make informed tradeoffs.
-
-**Statelessness** means every request contains all the information needed to process it. The server holds no session state between requests. This enables horizontal scaling — any server can handle any request — and makes failure recovery straightforward.
-
-**A uniform interface** means that the same vocabulary — the standard HTTP methods and status codes — applies to all resources. Clients learn one protocol and can use it universally, rather than learning a custom vocabulary for each API.
-
-**Cacheability** means responses declare whether they can be cached. Caches at every layer — client, CDN, proxy — can eliminate redundant requests, reducing load and improving response time.
-
-**A layered system** means clients do not know or care whether they are talking directly to the origin server or to an intermediary. Load balancers, caches, and gateways can be inserted transparently.
-
-In practice, most HTTP APIs implement statelessness and a uniform interface. Full REST, including hypermedia navigation where responses include links to available next actions, is rarer and more complex to implement — and not always worth the investment.
+I want to spend some time on what that commitment actually means in practice, because API design is one of those disciplines where the decisions you make early have consequences that compound over years. Get it right and you build an ecosystem around your platform. Get it wrong and you face a choice between maintaining something broken indefinitely and breaking the trust of everyone who depends on you.
 
 ---
 
-## Modelling Resources
+## What Stripe Understood That Most Teams Don't
 
-URLs should be nouns, not verbs. HTTP already provides verbs: GET, POST, PUT, PATCH, DELETE. Your URLs name the things being acted upon.
+Stripe is widely considered to have the best-designed payments API available. If you've worked with it, you probably have a sense of why. Things work the way you expect them to. Error messages tell you what went wrong and what to do about it. The documentation actually reflects the implementation.
 
-Collections are plural: slash-users. Individual items include an identifier: slash-users-slash-42. Nested resources reflect ownership: slash-users-slash-42-slash-orders. Only model nesting in the URL when the child resource only makes sense in the context of the parent. Resources with independent identities should have top-level endpoints. Deep nesting — more than two levels — produces URLs that are hard to read and difficult to work with.
+But there's something specific about how Stripe operates that's worth understanding. They maintain a twenty-page internal API design document that every new endpoint must follow. They have cross-functional review teams for any proposed changes. And they've built several patterns into their API that look like small details but turn out to be enormously valuable.
 
-Use the HTTP methods with their correct semantics. GET retrieves without side effects. POST creates or triggers non-idempotent operations. PUT replaces a resource completely — the client sends the full new representation. PATCH applies a partial update — the client sends only what changes. DELETE removes the resource. Idempotency matters: a GET, PUT, or DELETE can safely be retried without risk of unintended side effects; a POST cannot.
+Take their resource identifiers. A charge object has an ID that starts with "ch underscore." A customer has one starting with "cus underscore." An invoice with "in underscore." When you're debugging a production issue and you're looking at logs, you can tell at a glance what kind of object you're dealing with without looking anything up. This is a tiny design decision. Over the lifetime of a system that processes millions of transactions, it saves an enormous amount of time.
 
-Use standard HTTP status codes. Never return a 200 success response containing an error in the body — this breaks every standard tool that treats HTTP status codes as meaningful, from monitoring systems to caches to load balancers. When an error occurs, use the appropriate 4xx code for client errors and 5xx for server errors. A 400 means the request was malformed. A 401 means authentication is required or failed. A 403 means the user is authenticated but not permitted. A 404 means the resource does not exist. A 429 means the client is being rate-limited.
+Or take idempotency keys. For operations like creating a charge, Stripe allows you to supply an idempotency key with your request. If your request times out — which happens — you can safely retry it with the same key, and Stripe will return the result of the original operation rather than charging the customer twice. The server deduplicates the request. This is not a complicated concept, but building it into the API from the start means that retry logic is safe by design.
 
----
-
-## Error Responses, Pagination, and Filtering
-
-Define a single error response format and use it consistently across your entire API. Include the HTTP status code, a human-readable message, a machine-readable error type, and enough detail for a developer to understand what went wrong and what to do about it.
-
-Always paginate collections that may grow large, and design pagination in from the start — retrofitting it is a breaking change. Cursor-based pagination is more robust than page-and-offset pagination for datasets that change while the client is paginating through them.
-
-Use consistent query parameter conventions for filtering, sorting, and searching. Whatever conventions you choose, apply them the same way across all endpoints so developers can predict how they work.
+These aren't incidental features. They reflect a design philosophy: the API is a product, and its users are developers, and everything flows from thinking deeply about their experience.
 
 ---
 
-## Versioning
+## The Pagination Trap
 
-Versioning is an admission that you need to make a breaking change. Design to avoid breaking changes wherever possible, and be clear about what constitutes one.
+Let me give you a concrete example of what happens when you don't think about this.
 
-Breaking changes include: removing or renaming a field in a response, changing a field's type, removing an endpoint, changing authentication requirements, and removing an enum value. Non-breaking changes include: adding new optional fields to responses, adding new endpoints, and adding new optional request parameters. Design clients to ignore fields they do not recognise — this makes adding new optional fields safely possible without a version bump.
+You're building a new endpoint that returns a list of results. You test it with a handful of records during development. It's fast. It looks great. You ship it.
 
-When a major version is unavoidable, URL versioning — including the version number in the path — is the most common approach. It is visible, easy to route, and easy to document. Maintain old versions with a published deprecation timeline rather than removing them without notice.
+Six months later, you have real users. The largest of them has accumulated ten thousand records. Some of them have a hundred thousand. Your endpoint is now returning a hundred thousand records in a single response. Requests are timing out. Cloud bills are spiking. Users are seeing loading indicators that never resolve.
 
----
+You now need to add pagination. But adding pagination to a live API endpoint is a breaking change. Clients that assumed they'd get all the records in one response will break when they only get a page. You have to version the endpoint, communicate the change to every consumer, and accept that some of them won't update for months.
 
-## Authentication
+This could have been avoided entirely by designing pagination in from day one, even when you only had five records. The cost of adding it early is minimal. The cost of adding it after the fact is enormous.
 
-Never build your own authentication protocol. Use established standards.
-
-For delegated authorisation — allowing users to grant a third-party application access to their data without sharing their credentials — use OAuth 2.0 with OpenID Connect. For server-to-server authentication where delegated auth is unnecessary, API keys are appropriate: they should be long, random, stored as hashes on the server, and rotatable. JSON Web Tokens provide a stateless bearer token format; verify the signature on every request, validate the expiry and audience claims, and use short token lifetimes combined with refresh tokens.
-
-Always use HTTPS. Credentials and tokens transmitted over plain HTTP are trivially interceptable.
+This is why experienced API designers think about the future state of their data from the beginning. What happens when there are ten times as many records? What happens when there are a thousand times as many? Design for that state, not for the state you're in today.
 
 ---
 
-## Designing for Change
+## REST: What the Constraints Actually Mean
 
-The most important property of an API is its tolerance to change — the ability to evolve over time without breaking existing consumers.
+REST — Representational State Transfer — is often talked about as a set of conventions for URLs and HTTP methods. But the original concept is more interesting than that. It's an architectural style derived from the principles that make the web itself scalable and resilient.
 
-Apply the robustness principle: be conservative in what you send and liberal in what you accept. Do not expose your internal data model directly; add an abstraction layer between your API and your implementation. This gives you the freedom to refactor internally without breaking the contract externally.
+The constraint that matters most for everyday API design is statelessness. Every request must contain all the information needed to process it. The server holds no session state between requests. This sounds like a limitation, but it's actually the thing that makes horizontal scaling possible — any server can handle any request, because the request carries its own context. It's what makes fault tolerance straightforward — if a server fails mid-conversation, the client simply retries against another server.
 
-Consumer-driven contract testing formalises this: each consumer of your API defines the contract it expects, and the provider's CI pipeline runs those consumer contracts as tests. This catches breaking changes before deployment rather than after.
+The uniform interface constraint is what gives HTTP APIs their interoperability. Using the standard HTTP methods — GET for retrieval, POST for creation, PUT for full replacement, PATCH for partial update, DELETE for removal — means that standard tooling works against your API without modification. Proxies, caches, monitoring systems, load balancers — they all understand the semantics of these methods. If you invent your own verb system, you lose all of that.
 
----
-
-## Documentation
-
-An API without documentation is unusable. Documentation is not a post-implementation chore — it is part of the design. Writing documentation forces you to think through how a developer will actually use each endpoint, which often reveals design problems that are otherwise invisible.
-
-The OpenAPI Specification is the standard format for HTTP API documentation. It enables generating interactive documentation, client libraries, and server stubs. Design the specification before writing implementation code — the spec becomes the design artefact and the review document.
-
-Every endpoint should document what it does, all parameters with their types and constraints, all possible response shapes, all possible error responses, authentication requirements, and rate limit behaviour.
+Cacheability is a constraint that teams frequently ignore to their cost. Responses that declare themselves cacheable can be stored and served by CDNs, by browser caches, by reverse proxies. This eliminates redundant requests at scale. A properly cache-controlled GET response for a resource that changes infrequently can be served from a CDN edge node close to the user, with no request reaching your origin server at all.
 
 ---
 
-## When to Use Alternatives
+## Naming, Structure, and the Grammar of Good URLs
 
-REST over HTTP is not always the right choice. For high-performance service-to-service communication where strong typing, efficient encoding, and streaming matter, gRPC — which uses Protocol Buffers over HTTP/2 — is worth considering. For frontends with diverse and variable data needs, GraphQL lets clients specify exactly what data they need, eliminating over-fetching and under-fetching at the cost of greater implementation complexity. Match the technology to the actual requirements rather than defaulting to one approach for everything.
+URLs should be nouns, not verbs. HTTP already provides the verbs — GET, POST, PUT, DELETE. Your URLs name the things being acted upon, and the HTTP method says what to do to them.
+
+This means "slash users slash forty-two" rather than "slash get-user question mark id equals forty-two." It means "POST slash orders" rather than "POST slash create-order." The grammar of URL plus HTTP method is already expressive enough to describe any operation. You don't need to add verbs to your URLs.
+
+Use plural nouns for collections. "Slash users" is the collection. "Slash users slash forty-two" is an item in the collection. "Slash users slash forty-two slash orders" is the orders belonging to that user. This nesting should only go as deep as the ownership relationship justifies. Resources with independent identities should have top-level endpoints. Deep nesting produces URLs that are hard to read, hard to remember, and hard to document.
+
+---
+
+## HTTP Status Codes: The Silent Contract
+
+Never return a 200 success response with an error in the body. I want to say that again because it's one of the most common API design mistakes I see, and it causes disproportionate problems downstream.
+
+When you return 200 with an error body, you force every client to parse the response body before it can determine whether the request succeeded. You break standard monitoring systems that use HTTP status codes to detect failures. You break caches that treat 200 responses as cacheable. You break load balancers that make routing decisions based on response codes. You break every tool in the ecosystem that relies on the HTTP status code meaning what it's supposed to mean.
+
+HTTP status codes exist precisely for this purpose. Use them. A 400 when the request is malformed. A 401 when the user needs to authenticate. A 403 when the user is authenticated but not permitted. A 404 when the resource doesn't exist. A 429 when the client is making too many requests. A 500 when something unexpected went wrong on your side.
+
+---
+
+## The Cost of Breaking Changes
+
+I mentioned earlier that unmanaged API changes cause forty percent of integration failures and average fifteen to twenty hours per incident to remediate. Those are industry-wide statistics, and they're striking. But the more concerning figure is the tail risk.
+
+In 2023, a healthcare organisation suffered a breach exposing four hundred and fifty thousand patient records. The entry point was a deprecated SOAP endpoint that had been forgotten when the team migrated to a newer REST API. The REST endpoints had security patches. The old SOAP endpoint did not. It had been running, unmonitored, for six months, because no one thought about it when they applied the patches.
+
+Old API endpoints don't just become technical debt. They become security liabilities. They become regulatory exposure. The practice of maintaining a complete inventory of your API surface — knowing what exists, what it does, and what security policies apply to it — is not just good hygiene. In regulated industries, it's a necessity.
+
+The organisations that handle API change management proactively — with versioning, with explicit deprecation timelines, with client communication — reduce update-related incidents by about seventy percent compared to those that manage it reactively. That's a massive difference for a practice that mostly consists of discipline and planning rather than technical investment.
+
+---
+
+## Design for Change
+
+The most important property an API can have, over a long enough time horizon, is tolerance to change. Your API will need to evolve. Your data model will change. Requirements will change. New consumers will appear with needs you didn't anticipate.
+
+The design principle that enables this is to keep your internal implementation separate from your external API. Your API is a contract with your consumers. Your data model is an implementation detail. When these are the same thing — when you expose your database schema directly as your API — every internal refactor risks breaking your consumers.
+
+Add an abstraction layer. Design the API for your consumers, not for your implementation. Then you can refactor freely internally without touching the contract.
+
+Apply the robustness principle: be conservative in what you send and liberal in what you accept. Consumers should tolerate new fields in responses — if they break when your API adds an optional field, they're too tightly coupled to your schema. Servers should tolerate requests with extra fields they don't understand. This gives both sides room to evolve independently.
+
+Consumer-driven contract testing takes this further. Each consumer defines the contract it expects from your API. Your CI pipeline runs those consumer contracts as tests. This means you find out about breaking changes before deployment rather than after — when a consumer's integration test fails in your pipeline rather than when their application breaks in production.
+
+---
+
+## Documentation Is Part of the Design
+
+I want to end with something that is often treated as an afterthought: documentation. An API without documentation is, practically speaking, unusable. Documentation is not what you write after you've built the API. It's part of designing the API.
+
+Writing documentation forces you to think through how a developer will actually use each endpoint. It forces you to articulate what each parameter means, what each response field contains, what each error code indicates. This process consistently reveals design problems that are otherwise invisible — endpoints whose behaviour is unclear, error cases that aren't handled, parameter names that are ambiguous.
+
+The OpenAPI Specification gives you a standard format for describing HTTP APIs. Write the spec before you write the implementation. Treat it as the design document. Run it through linting tools that check for consistency. Review it the way you review code. The specification, not the implementation, is the source of truth for what your API promises to do.
+
+When a developer encounters your API, the documentation is their first experience of it. Make that experience reflect the care and thought you've put into everything else.

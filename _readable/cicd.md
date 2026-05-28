@@ -1,111 +1,103 @@
 # Continuous Integration and Delivery
 
-Software that is not deployed is not delivering value. Every day a finished feature sits undeployed is a day of deferred benefit — and a day of accumulated risk, as more changes are made around it and the gap between what is working in development and what is running in production grows wider.
+Charity Majors, one of the most incisive voices in the industry on operational practices, has a way of framing the cost of infrequent deployment that I find clarifying. She asks: how much is your fear of deployments costing you?
 
-The goal of continuous integration and continuous delivery is to make the path from a developer's committed change to production as fast, reliable, safe, and reversible as possible.
+Because here's the thing. When deployments are scary, teams do them less often. When they do them less often, more changes accumulate. When more changes accumulate, each deployment becomes a bigger, riskier event. When each deployment is a bigger, riskier event, teams get more scared of deploying. And you end up paying a compounding interest rate on your fear in the form of slower delivery, more stressful releases, and — paradoxically — more production incidents.
 
----
-
-## Continuous Integration
-
-Continuous integration is a development practice, not a tool. Running a CI server does not make you doing continuous integration. The practice is this: every developer integrates their work with the main codebase at least once a day, and usually more often.
-
-The reason this matters is that the cost of integration grows with the time since last integration. Two developers who have both been working for a week on separate branches will encounter more conflicts, more subtle incompatibilities, and more surprises when they finally merge than if they had integrated daily. Integrating frequently makes each integration small and low-risk.
-
-The technical requirement for continuous integration is that a broken main branch is fixed within minutes, not hours. When a commit breaks the build or causes a test to fail, fixing it is the immediate priority for the team. A broken main branch means every other developer is working in an uncertain state.
-
-Continuous integration requires **trunk-based development**: all developers integrate their work to the main branch, not to long-lived feature branches. Long-lived branches undermine the practice because they delay integration and accumulate divergence. Feature flags enable incomplete features to be shipped safely — the code is in production but the feature is disabled for users until it is ready.
+The solution, which is counterintuitive until you live it, is to deploy more often. Not less. The teams with the highest deployment frequency consistently have the lowest incident rates. The relationship between speed and stability isn't a trade-off. It's a correlation. Get fast enough and safe enough at the same time.
 
 ---
 
-## The Deployment Pipeline
+## What the Evidence Shows
 
-A deployment pipeline is an automated implementation of your build, test, and release process. Every committed change passes through the same pipeline, in the same order, on the same infrastructure.
+Let me give you some concrete data points.
 
-The critical principle is that you build the deployable artefact once and promote that same artefact through all subsequent stages. You never rebuild for each environment. What runs in staging is exactly what you will run in production — the only differences are configuration. Rebuilding from source for each environment introduces the possibility that what you tested is not what you deployed.
+HubSpot deploys two hundred to three hundred times per day across eighty-five engineers. That's an average of four deployments per engineer, per day. Monzo — the digital bank — deploys to production over a hundred times a day. Hunter.io, a smaller company, reaches twenty deploys daily, and describes the process as essentially invisible. It happens in the background, automatically, and engineers rarely think about it.
 
-Structure the pipeline to fail fast. Run the quickest checks first: compilation, unit tests, and static analysis. Only if those pass should you run the slower integration tests. Only if those pass should you deploy to staging. This way, the most common failures are caught in the first few minutes rather than after a thirty-minute run.
+These are not outliers from some special category of organisation with unlimited resources and unique technology. They're ordinary engineering teams that decided to take deployment seriously and built the practices and infrastructure to support it.
 
-Every pipeline failure is a priority. The team's goal is to have a releasable build at all times.
+At the other end of the spectrum, I want to tell you about OpsRamp, because their transformation story is instructive. They were running quarterly waterfall-style releases. Thirty people in a change management meeting every Wednesday, coordinating twelve codebases. Eight-day advance tickets for any change request. Risk committees pre-approving releases. Sound familiar? TrueCar had similar ceremonies.
 
----
+Both companies described these rituals not as safety measures, but as security theatre — the performance of control without the substance of it. The thirty-person meeting didn't catch bugs. It slowed everything down while giving people the feeling of oversight without the reality.
 
-## Continuous Delivery vs Continuous Deployment
-
-These are related but distinct.
-
-**Continuous delivery** means that every commit that passes the pipeline could be deployed to production. The technical capability exists at all times. Whether and when to deploy is a business decision, not a technical one.
-
-**Continuous deployment** means that every commit that passes the pipeline is automatically deployed to production. There is no human approval step before production. This is the approach used by high-trust teams with strong monitoring and fast rollback capabilities.
-
-Most teams use continuous delivery: automatic deployment to staging, with a human gate before production. The value of continuous delivery is not necessarily that you deploy to production more often — it is that you could, at any point, which means your deployment process is practised, tested, and reliable rather than a stressful infrequent event.
+When both organisations moved to continuous delivery, the outcomes were measurable. Up to thirty percent faster time to market. Fifty percent fewer defects. A two hundred percent increase in deployment frequency.
 
 ---
 
-## The Four Key Metrics
+## What Continuous Integration Actually Means
 
-Research into software delivery performance has identified four metrics that distinguish high-performing teams from the rest.
+I want to be precise about what continuous integration is, because the term is used loosely in ways that obscure what makes it valuable.
 
-**Deployment frequency** measures how often you deploy to production. Elite teams deploy on demand, multiple times per day.
+Continuous integration is not "running a CI server." GitHub Actions doesn't make you CI-compliant. Jenkins doesn't make you CI-compliant. The practice of continuous integration is this: every developer integrates their work with the main codebase at least once a day, and usually more often.
 
-**Lead time for changes** measures how long it takes for a committed change to reach production. Elite teams measure this in under an hour.
+Why does the frequency matter? Because the cost of integration grows with the time since last integration. Two developers who have been working on separate branches for two weeks will encounter more conflicts, more subtle incompatibilities, and more surprises when they merge than if they had integrated daily. Each day of isolation accumulates divergence. Integration done daily is a small, routine event. Integration done monthly is a project.
 
-**Change failure rate** measures what percentage of deployments cause a production incident requiring remediation. Elite teams keep this below fifteen percent.
+The technical contract for continuous integration is that the main branch is always in a releasable state. A broken build is fixed within minutes, not hours. When someone breaks the build, fixing it is the immediate priority for the team. While the build is broken, everyone is working in an uncertain state.
 
-**Time to restore service** measures how long it takes to recover from a production incident. Elite teams recover in under an hour.
+Continuous integration requires trunk-based development — all developers integrating to the main branch, not to long-lived feature branches. Feature branches that live for weeks or months are the opposite of continuous integration. They accumulate exactly the kind of divergence that CI is designed to prevent.
 
-The most important finding from this research is that high deployment frequency does not correlate with higher failure rates. The teams that deploy most often also have the lowest failure rates. Speed and stability are not in tension — they are achieved together through good practices. Infrequent deployments do not reduce risk; they accumulate it.
-
----
-
-## Deployment Strategies
-
-Different strategies for releasing new versions balance speed, risk, and rollback capability differently.
-
-**Blue-green deployment** maintains two identical production environments. You deploy the new version to the inactive environment, test it, then switch the load balancer. Rollback is instantaneous — switch back. The cost is running twice the infrastructure during the transition.
-
-**Canary deployment** routes a small percentage of production traffic — perhaps one or five percent — to the new version while the majority continues to use the old version. You monitor error rates and latency. If the new version behaves well, you gradually increase the percentage. The blast radius of a problem is limited to the canary fraction. The complexity is that both versions run simultaneously and must be compatible.
-
-**Feature flags** decouple deployment from release. Code is deployed to all servers but a feature is only enabled for a subset of users — internal employees first, then a small percentage of external users, then everyone. This gives you a granular, instant kill switch. The cost is the complexity of maintaining flags in the code, which must be cleaned up once a feature is stable.
-
-**Rolling deployment** replaces instances one at a time or in batches. Simple to implement, but rollback is slow, and old and new versions serve traffic simultaneously during the rollout.
+Feature flags solve the obvious objection: what about features that aren't ready to ship? The answer is that code and features are different things. You can deploy code that implements an incomplete feature as long as the feature itself is toggled off for users. The code ships. The feature doesn't. When the feature is ready, you flip the flag. This is how you get the integration benefits of trunk-based development without shipping half-finished work to users.
 
 ---
 
-## Infrastructure as Code
+## The Pipeline as a Concept
 
-Every configuration decision about how your infrastructure is provisioned and configured should exist in version-controlled code, not in manual console operations. This makes environments reproducible, auditable, and consistent.
+A deployment pipeline is the automated implementation of your build, deploy, test, and release process. Every committed change passes through the same pipeline, in the same order, on the same infrastructure.
 
-Infrastructure as code enables the same practices that make application code trustworthy: code review, automated testing, version history, and rollback. A manually configured server is a liability — it cannot be reliably reproduced, and differences between environments are invisible until they cause problems.
+There's a principle here that's worth stating explicitly: you build the deployable artefact once, and you promote that exact artefact through every subsequent stage. You don't rebuild from source for each environment. What runs in staging is exactly what runs in production. The only difference is configuration. If you rebuild for each environment, you introduce the possibility that what you tested is not what you deployed.
 
-**GitOps** extends this further: the Git repository is the single source of truth for both application and infrastructure state. Changes are proposed as pull requests. A controller continuously reconciles the running state with the declared state in the repository.
+The pipeline should be structured to fail fast. The fastest checks run first. Compilation, unit tests, linting — these take seconds or minutes and catch the most common failures. They run before the slower integration tests. Integration tests run before the performance tests. Performance tests run before deployment. The principle is that you find out about problems as early as possible, at the lowest cost.
 
----
-
-## Secrets Management
-
-Secrets — passwords, API keys, tokens, certificates, private keys — must not appear in version control. Not in application code, not in configuration files, not in commit history.
-
-The standard approach is to load secrets from environment variables at runtime, with those values injected by a secrets management system. Secrets should be rotated regularly. Access to secrets should be audited. Anomalous access patterns should trigger alerts. Use short-lived credentials where the platform supports it, eliminating the risk of long-lived credentials being leaked.
+When a pipeline fails, it is a priority. Not "someone will look at it this afternoon." A priority. A broken pipeline means every subsequent commit is piling up behind a broken state, and every developer working on the codebase is working in an uncertain environment.
 
 ---
 
-## Testing Strategy
+## The Four Metrics That Tell You How You're Doing
 
-The test pyramid describes the right proportion of test types for a healthy CI pipeline. Unit tests — fast, isolated, with no external dependencies — should be the most numerous. Integration tests, which involve real external dependencies, should be fewer and slower. End-to-end tests, which exercise the whole stack, should be few and reserved for the most critical flows.
+Research into software delivery performance has produced a remarkably clean set of four metrics that distinguish high-performing teams from the rest.
 
-Inverting the pyramid — many end-to-end tests, few unit tests — produces pipelines that are slow, brittle, and difficult to maintain. Test failures in end-to-end tests are hard to diagnose. A test suite that takes ninety minutes to run does not provide fast feedback.
+Deployment frequency measures how often you ship to production. Lead time for changes measures how long it takes from a commit being made to it running in production. Change failure rate measures what percentage of deployments cause a production incident. And time to restore service measures how quickly you recover when something goes wrong.
 
-**Flaky tests** — tests that pass and fail intermittently without code changes — are a serious problem. Once a team learns that some tests sometimes fail for no reason, they start ignoring test failures. Quarantine flaky tests immediately and fix or delete them promptly.
+The finding that surprises most people is that these metrics are not in tension. Teams that score well on deployment frequency also score well on change failure rate and time to restore service. The teams shipping the most often are also the teams with the fewest production incidents, and the fastest recovery times.
+
+The explanation is that frequent, small deployments are easier to reason about when something goes wrong. If you deploy once a quarter and something breaks, diagnosing the problem means sifting through three months of changes. If you deploy multiple times a day, the change set is small and the cause is usually obvious.
 
 ---
 
-## Common Anti-Patterns
+## Deployment Strategies: Managing Risk in Production
 
-**The nightly build** runs once a day. This means bugs can go undetected for hours. Developers find out about failures the next morning, far from the code that caused them. This is not continuous integration.
+Different deployment strategies balance the trade-offs between speed, risk, and rollback capability.
 
-**Long-lived feature branches** accumulate divergence. The longer a branch lives, the harder it is to merge. The integration tax is paid all at once rather than continuously.
+Blue-green deployment maintains two identical production environments. You deploy the new version to the inactive environment, run your post-deployment checks, and then switch the load balancer. Rollback is instantaneous — you switch the load balancer back. The cost is running twice the infrastructure during each deployment.
 
-**Manual approvals for every deploy** eliminate the speed benefits of automation. The value of automated pipelines is wasted if every stage requires a human approval. Reserve gates for the final production promotion.
+Canary deployment routes a small fraction of production traffic — say one or five percent — to the new version while the majority continues to hit the old version. You monitor error rates and latency. If the new version looks healthy, you gradually increase the percentage. If it looks unhealthy, you roll it back quickly, having limited the blast radius to a small portion of users. The complexity is that both versions run simultaneously and must be API-compatible.
 
-**Siloed testing** — where testing is the responsibility of a separate QA team rather than the developers writing the code — produces tests that do not reflect what developers care about. Testing is a development activity.
+Feature flags take a different approach entirely. The code is deployed everywhere, but the feature is only enabled for a specified subset of users — internal employees first, then a small percentage of external users, then everyone. This gives you a per-user kill switch that can be activated instantly if something goes wrong. It also decouples your deployment schedule from your release schedule, which is powerful.
+
+Rolling deployment replaces instances progressively, one at a time or in batches. It's simple — no extra infrastructure, no switching. But rollback is slow, and during the deployment you have old and new versions running simultaneously.
+
+---
+
+## Infrastructure as Code and the Snowflake Problem
+
+There is a type of production server that practitioners sometimes call a "snowflake." It's a server that has been configured manually over time, accumulating small tweaks and changes that were never recorded anywhere. Nobody knows exactly what's on it. It can't be reliably reproduced. When you try to spin up a new instance, something is always slightly different.
+
+Snowflake servers are a deployment reliability problem. They're also a security problem — because if you can't reproduce the server configuration, you can't audit it. And they're a team knowledge problem, because the configuration exists only in the memory of whoever has been maintaining the server.
+
+The solution is to define all infrastructure in code, version-controlled, deployed through the same pipeline as application code. Every configuration decision becomes auditable, reviewable, and reproducible. Infrastructure becomes deterministic — you can spin up an identical environment from scratch. Changes go through review. Drift between environments becomes visible.
+
+This principle extends to secrets management. Passwords, API keys, tokens, private keys — none of these belong in version-controlled configuration files. They belong in a secrets management system, injected at runtime, with access audited and credentials rotatable.
+
+---
+
+## The Cultural Dimension
+
+Something that the transformation stories consistently emphasise is that CI/CD is not primarily a technical problem. OpsRamp and TrueCar didn't fail to do continuous delivery because they lacked the tooling. They did it because of organisational culture — change management rituals, approval processes, a model of stability that equated infrequency of deployment with safety.
+
+The practices that enable cultural change in CI/CD environments have a consistent pattern. Blameless post-mortems — when something goes wrong, the goal is to understand the system failure, not to find someone to blame. Without psychological safety, engineers don't take the risks that fast delivery requires.
+
+Testing as a development activity, not a QA silo. If developers don't own the tests, the tests don't reflect what developers care about. A test suite that no one trusts is worse than no test suite, because it gives false confidence while failing to catch real problems.
+
+And the consistent elimination of manual gates. Approval processes that require human sign-off at every stage don't make deployments safer. They make deployments slower and more stressful, which increases the pressure to batch changes, which makes each deployment bigger and riskier. Automate everything that can be automated. Reserve human judgement for the decisions that genuinely require it.
+
+The goal is to make deployment so routine, so fast, and so reversible that it stops being a notable event. When deployment is invisible, the fear goes away. And when the fear goes away, you can focus on building things that matter.
