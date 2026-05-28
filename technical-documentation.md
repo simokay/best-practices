@@ -1,6 +1,6 @@
 ---
 title: Technical Documentation
-nav_order: 7
+nav_order: 8
 ---
 
 # Writing Effective Technical Documentation

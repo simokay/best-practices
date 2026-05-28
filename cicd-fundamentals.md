@@ -1,6 +1,6 @@
 ---
 title: CI/CD Fundamentals
-nav_order: 6
+nav_order: 7
 ---
 
 # CI/CD Fundamentals for Modern Codebases

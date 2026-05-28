@@ -7,5 +7,7 @@ plugins:
   - jekyll-relative-links
   - jekyll-seo-tag
 
+color_scheme: dark
+
 search_enabled: true
 heading_anchors: true

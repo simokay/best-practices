@@ -1,6 +1,6 @@
 ---
 title: Code Auditing & Security Review
-nav_order: 2
+nav_order: 3
 ---
 
 # Code Auditing Techniques and Security Review Practices
