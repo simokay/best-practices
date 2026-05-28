@@ -1,6 +1,6 @@
 ---
 title: Web Application Vulnerabilities
-nav_order: 4
+nav_order: 5
 ---
 
 # Common Web Application Vulnerability Classes

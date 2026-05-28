@@ -1,6 +1,6 @@
 ---
 title: API Design Best Practices
-nav_order: 6
+nav_order: 7
 ---
 
 # API Design Best Practices

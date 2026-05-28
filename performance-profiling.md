@@ -1,6 +1,6 @@
 ---
 title: Performance Profiling
-nav_order: 5
+nav_order: 6
 ---
 
 # Application-Level Performance Profiling
