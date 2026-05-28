@@ -87,7 +87,8 @@ for i, chunk in enumerate(chunks):
 PYEOF
 }
 
-# Call Google TTS API, write MP3 to output path
+# Call Google TTS API, write MP3 to output path.
+# Exits with code 2 on quota/billing errors so the caller can stop cleanly.
 synthesize_chunk() {
   local text_file="$1"
   local mp3_out="$2"
@@ -119,7 +120,17 @@ try:
         open(mp3_out, 'wb').write(base64.b64decode(data['audioContent']))
 except urllib.error.HTTPError as e:
     body = e.read().decode()
-    print(f"API error {e.code}: {body}", file=sys.stderr)
+    try:
+        msg = json.loads(body).get('error', {}).get('message', body)
+    except Exception:
+        msg = body
+    # 429 = quota exhausted; 403 with billingNotEnabled = no billing account
+    if e.code in (429, 403):
+        print(f"\nQuota or billing error: {msg}", file=sys.stderr)
+        print("Free tier (1M chars/month) may be exhausted, or billing is not enabled.", file=sys.stderr)
+        print("Check: console.cloud.google.com > Billing > Budgets & alerts", file=sys.stderr)
+        sys.exit(2)
+    print(f"API error {e.code}: {msg}", file=sys.stderr)
     sys.exit(1)
 PYEOF
 }
@@ -141,11 +152,28 @@ for md in "$READABLE_DIR"/*.md; do
   echo "  ${#chunk_files[@]} chunk(s)"
 
   chunk_mp3s=()
+  quota_hit=0
   for i in "${!chunk_files[@]}"; do
     chunk_mp3="$TMPDIR_LOCAL/${name}_chunk${i}.mp3"
+    set +e
     synthesize_chunk "${chunk_files[$i]}" "$chunk_mp3"
+    exit_code=$?
+    set -e
+    if [[ $exit_code -eq 2 ]]; then
+      quota_hit=1
+      break
+    elif [[ $exit_code -ne 0 ]]; then
+      echo "  Error on chunk $i — skipping $name" >&2
+      break
+    fi
     chunk_mp3s+=("$chunk_mp3")
   done
+
+  if [[ $quota_hit -eq 1 ]]; then
+    echo ""
+    echo "Stopped: quota or billing limit reached. Files generated so far are in _audio/."
+    break
+  fi
 
   if [[ ${#chunk_mp3s[@]} -eq 1 ]]; then
     mv "${chunk_mp3s[0]}" "$final_mp3"
